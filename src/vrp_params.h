@@ -25,7 +25,7 @@ struct VRPSearchParams {
   std::int32_t numVehicles;
   std::int32_t depotNode;
   std::int32_t timeHorizon;
-  std::vector<int64> vehicleCapacity;   // type changed to vector 
+  std::vector<std::int64_t> vehicleCapacity;    
 
   RouteLocks routeLocks;
 
@@ -131,12 +131,6 @@ VRPSolverParams::VRPSolverParams(const Nan::FunctionCallbackInfo<v8::Value>& inf
   auto demandMatrixOk = !maybeDemandMatrix.IsEmpty() && maybeDemandMatrix.ToLocalChecked()->IsArray();
 
 
-  if(!numNodesOk ) throw std::runtime_error{"ERROR TYPE 1"};
-    else if(!costMatrixOk) throw std::runtime_error{"ERROR TYPE 2"};
-      else if(!durationMatrixOk) throw std::runtime_error{"ERROR TYPE 3"};
-        else if(!timeWindowsVectorOk) throw std::runtime_error{"ERROR TYPE 4"};
-          else if(!demandMatrixOk) throw std::runtime_error{"ERROR TYPE 5"};
-  
   if (!numNodesOk || !costMatrixOk || !durationMatrixOk || !timeWindowsVectorOk || !demandMatrixOk)
     throw std::runtime_error{"SolverOptions expects"
                              " 'numNodes' (Number),"
@@ -199,7 +193,6 @@ VRPSearchParams::VRPSearchParams(const Nan::FunctionCallbackInfo<v8::Value>& inf
   numVehicles = Nan::To<std::int32_t>(maybeNumVehicles.ToLocalChecked()).FromJust();
   depotNode = Nan::To<std::int32_t>(maybeDepotNode.ToLocalChecked()).FromJust();
   timeHorizon = Nan::To<std::int32_t>(maybeTimeHorizon.ToLocalChecked()).FromJust();
-  //vehicleCapacity = Nan::To<std::int32_t>(maybeVehicleCapacity.ToLocalChecked()).FromJust();
 
   
 
@@ -213,8 +206,8 @@ VRPSearchParams::VRPSearchParams(const Nan::FunctionCallbackInfo<v8::Value>& inf
   deliveries = makeVectorFromJsNumberArray<Deliveries>(deliveriesArray);
 
   auto vehicleCapacityArray = maybeVehicleCapacity.ToLocalChecked().As<v8::Array>();
-  vehicleCapacity = makeVectorFromJsNumberArray1<std::vector<int64> >(vehicleCapacityArray);
-  // new function call added to make vehicle capacity vector  calls  function in adapter.h
+  vehicleCapacity = makeVectorFromJsNumberArray1<std::vector<std::int64_t> >(vehicleCapacityArray);
+  
 
   callback = info[1].As<v8::Function>();
 }

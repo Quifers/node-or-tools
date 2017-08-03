@@ -32,7 +32,7 @@ struct VRPWorker final : Nan::AsyncWorker {
             std::int32_t numVehicles_,                        //
             std::int32_t vehicleDepot_,                       //
             std::int32_t timeHorizon_,                        //
-            std::vector<int64> vehicleCapacity_,              //   type changed to vector int64
+            std::vector<std::int64_t> vehicleCapacity_,       //   
             RouteLocks routeLocks_,                           //
             Pickups pickups_,                                 //
             Deliveries deliveries_)                           //
@@ -120,71 +120,38 @@ struct VRPWorker final : Nan::AsyncWorker {
     auto demandAdaptor = makeBinaryAdaptor(*demands);
     auto demandCallback = makeCallback(demandAdaptor);
 
- 
-    //std::vector<int64> vehicle_capacities
-    // vehicle capacity call back  
+    const static auto kDimensionCapacity = "capacity";
 
-  //auto vehicleCapacityAdaptor = makeUnaryAdaptor(vehicleCapacity);
-  //  auto vehicleCapacityCallback = makeCallback(vehicleCapacityAdaptor);
-
-// if(model.status() != RoutingModel::Status::ROUTING_SUCCESS)
-//       return SetErrorMessage("Unable to find a solution -2");
-
-
-    const static std::string& kDimensionCapacity = "capacity";
-
-    //function for handling different capacitated vehicles
+    
     model.AddDimensionWithVehicleCapacity(demandCallback, /*slack=*/0, vehicleCapacity, /*fix_start_cumul_to_zero=*/true, kDimensionCapacity);
      const auto& capacityDimension = model.GetDimensionOrDie(kDimensionCapacity);
-
-     // if(model.status() != RoutingModel::Status::ROUTING_SUCCESS)
-     //  return SetErrorMessage("Unable to find a solution -1");
-
-     std::cout<<"hello ";
-    //old  
-    //const static auto kDimensionCapacity = "capacity";
-
-    //model.AddDimension(demandCallback, /*slack=*/0, vehicleCapacity, /*fix_start_cumul_to_zero=*/true, kDimensionCapacity);
-    // const auto& capacityDimension = model.GetDimensionOrDie(kDimensionCapacity);
-
-
+    
 
     // Pickup and Deliveries
 
     auto* solver = model.solver();
-    // if(model.status() != RoutingModel::Status::ROUTING_SUCCESS)
-    //   return SetErrorMessage("Unable to find a solution 0");
-
     for (std::int32_t atIdx = 0; atIdx < pickups.size(); ++atIdx) {
       const auto pickupIndex = model.NodeToIndex(pickups.at(atIdx));
       const auto deliveryIndex = model.NodeToIndex(deliveries.at(atIdx));
 
-      auto* sameRouteCt = solver->MakeEquality(model.VehicleVar(pickupIndex),    //
-                                               model.VehicleVar(deliveryIndex)); //
+      auto* sameRouteCt = solver->MakeEquality(model.VehicleVar(pickupIndex),    
+                                               model.VehicleVar(deliveryIndex)); 
 
-      auto* pickupBeforeDeliveryCt = solver->MakeLessOrEqual(timeDimension.CumulVar(pickupIndex),    //
-                                                             timeDimension.CumulVar(deliveryIndex)); //
+      auto* pickupBeforeDeliveryCt = solver->MakeLessOrEqual(timeDimension.CumulVar(pickupIndex),    
+                                                             timeDimension.CumulVar(deliveryIndex)); 
 
       solver->AddConstraint(sameRouteCt);
       solver->AddConstraint(pickupBeforeDeliveryCt);
 
       model.AddPickupAndDelivery(pickups.at(atIdx), deliveries.at(atIdx));
     }
-    // if(model.status() != RoutingModel::Status::ROUTING_SUCCESS)
-    //   return SetErrorMessage("Unable to find a solution 0");
 
     // Done with modifications to the routing model
 
     model.CloseModel();
 
-    // if(model.status() != RoutingModel::Status::ROUTING_SUCCESS)
-    //   return SetErrorMessage("Unable to find a solution 1");
-
     // Locking routes into place needs to happen after the model is closed and the underlying vars are established
     const auto validLocks = model.ApplyLocksToAllVehicles(routeLocks, /*close_routes=*/false);
-
-    // if(model.status() != RoutingModel::Status::ROUTING_SUCCESS)
-    //   return SetErrorMessage("Unable to find a solution 2");
 
     if (!validLocks)
       return SetErrorMessage("Invalid locks");
@@ -272,8 +239,7 @@ struct VRPWorker final : Nan::AsyncWorker {
   std::int32_t numVehicles;
   std::int32_t vehicleDepot;
   std::int32_t timeHorizon;
-  std::vector<int64> vehicleCapacity;   // changed type of vehicle capacity from int32_t to vector<int64>
-
+  std::vector<std::int64_t> vehicleCapacity;   
   const RouteLocks routeLocks;
 
   const Pickups pickups;
