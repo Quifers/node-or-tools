@@ -39,6 +39,8 @@ private:
   std::shared_ptr<const TimeWindows> timeWindows;
   // Demands at node s continuing to node t.
   std::shared_ptr<const DemandMatrix> demands;
+
+  // std::shared_ptr<const ServiceTimes> serviceTimes;
 };
 
 #endif

@@ -18,6 +18,39 @@ struct RoutingSolution {
   std::vector<std::vector<Interval>> times;
 };
 
+
+
+class ServiceTimePlusTransition {
+ public:
+  
+  ServiceTimePlusTransition(
+      
+    std::vector<int32_t>* service_times,
+    std::shared_ptr<const DurationMatrix> _durations
+     
+      );
+    
+  long long int  Compute(RoutingModel::NodeIndex from,
+                RoutingModel::NodeIndex to) const;
+ private:
+  
+  std::vector<int32_t>* service_times;
+    std::shared_ptr<const DurationMatrix> durations;
+  };
+
+ServiceTimePlusTransition::ServiceTimePlusTransition( std::vector<int32_t>* serviceTimes,std::shared_ptr<const DurationMatrix> _durations)
+    :  service_times(serviceTimes),
+      durations(_durations)
+{}
+
+long long int ServiceTimePlusTransition::Compute(RoutingModel::NodeIndex from,
+                                         RoutingModel::NodeIndex to) const {
+ 
+
+         return (long long int)service_times->at(from.value()) +  durations->at(from.value(),to.value());
+
+}
+
 struct VRPWorker final : Nan::AsyncWorker {
   using Base = Nan::AsyncWorker;
 
@@ -32,7 +65,8 @@ struct VRPWorker final : Nan::AsyncWorker {
             std::int32_t numVehicles_,                        //
             std::int32_t vehicleDepot_,                       //
             std::int32_t timeHorizon_,                        //
-            std::vector<int64> vehicleCapacity_,              //   type changed to vector int64
+            std::vector<int64> vehicleCapacity_,              //
+            std::vector<int32_t> serviceTimes_,               //
             RouteLocks routeLocks_,                           //
             Pickups pickups_,                                 //
             Deliveries deliveries_)                           //
@@ -48,6 +82,7 @@ struct VRPWorker final : Nan::AsyncWorker {
         vehicleDepot{vehicleDepot_},
         timeHorizon{timeHorizon_},
         vehicleCapacity{std::move(vehicleCapacity_)},
+        serviceTimes{std::move(serviceTimes_)},
         routeLocks{std::move(routeLocks_)},
         pickups{std::move(pickups_)},
         deliveries{std::move(deliveries_)},
@@ -60,6 +95,7 @@ struct VRPWorker final : Nan::AsyncWorker {
     const auto durationsOk = durations->dim() == numNodes;
     const auto timeWindowsOk = timeWindows->size() == numNodes;
     const auto demandsOk = demands->dim() == numNodes;
+    
 
     if (!costsOk || !durationsOk || !timeWindowsOk || !demandsOk)
       throw std::runtime_error{"Expected costs, durations, timeWindow and demand sizes to match numNodes"};
@@ -89,72 +125,88 @@ struct VRPWorker final : Nan::AsyncWorker {
       throw std::runtime_error{"Expected pickups and deliveries parallel array sizes to match"};
   }
 
+
+
+
+  template <typename T> auto Travel( const T& m,RoutingModel::NodeIndex from,
+             RoutingModel::NodeIndex to) {
+  
+     return m->at(from.value(), to.value()); 
+}
+
+ int32_t ServiceTime(const std::vector<int32_t>* const service_times,
+                  RoutingModel::NodeIndex node) {
+  return  service_times->at(node.value());
+}
+  
+
+  int32_t TravelPlusServiceTime( std::vector<int32_t>* service_times,
+                            RoutingModel::NodeIndex from,
+                            RoutingModel::NodeIndex to) {
+  auto DurationMatrix = this->durations;
+    
+  return ServiceTime(service_times, from) + Travel(DurationMatrix,from, to);
+}
+
+  
+  template <typename Adaptor> auto makeCallback1(const Adaptor& adaptor) {
+  return NewPermanentCallback(&adaptor, &Adaptor::operator());
+}
+
   void Execute() override {
     auto costAdaptor = makeBinaryAdaptor(*costs);
     auto costCallback = makeCallback(costAdaptor);
 
     model.SetArcCostEvaluatorOfAllVehicles(costCallback);
 
-    // Time Dimension
 
-    auto durationAdaptor = makeBinaryAdaptor(*durations);
-    auto durationCallback = makeCallback(durationAdaptor);
+
+    RoutingModel::NodeIndex from;
+    RoutingModel::NodeIndex to;
+    // auto var = this->makeCallback1(*TravelPlusServiceTime(serviceTimes,from,to);
+     
+      std::int32_t(VRPWorker::*travelPlusServiceTime)(std::vector<int32_t>*,
+                            RoutingModel::NodeIndex,
+                            RoutingModel::NodeIndex ) = &VRPWorker::TravelPlusServiceTime;
+     
+    
+
+      auto timehorizon = (std::int64_t)timeHorizon;
+    ServiceTimePlusTransition time1(&serviceTimes,durations);
+    
+    model.AddDimension(
+      NewPermanentCallback(&time1,&ServiceTimePlusTransition::Compute),
+      timehorizon, timehorizon, /*fix_start_cumul_to_zero=*/true, "time");
+    
 
     const static auto kDimensionTime = "time";
 
-    model.AddDimension(durationCallback, timeHorizon, timeHorizon, /*fix_start_cumul_to_zero=*/true, kDimensionTime);
+    
     const auto& timeDimension = model.GetDimensionOrDie(kDimensionTime);
 
     for (std::int32_t node = 0; node < numNodes; ++node) {
       const auto interval = timeWindows->at(node);
       timeDimension.CumulVar(node)->SetRange(interval.start, interval.stop);
-      // At the moment we only support a single interval for time windows.
-      // We can support multiple intervals if we sort intervals by start then stop.
-      // Then Cumulval(n)->SetRange(minStart, maxStop), then walk over intervals
-      // removing intervals between active intervals:
-      // CumulVar(n)->RemoveInterval(stop, start).
+      
     }
 
+
+   
     // Capacity Dimension
 
     auto demandAdaptor = makeBinaryAdaptor(*demands);
-    auto demandCallback = makeCallback(demandAdaptor);
-
- 
-    //std::vector<int64> vehicle_capacities
-    // vehicle capacity call back  
-
-  //auto vehicleCapacityAdaptor = makeUnaryAdaptor(vehicleCapacity);
-  //  auto vehicleCapacityCallback = makeCallback(vehicleCapacityAdaptor);
-
-// if(model.status() != RoutingModel::Status::ROUTING_SUCCESS)
-//       return SetErrorMessage("Unable to find a solution -2");
-
+    auto demandCallback = makeCallback(demandAdaptor); 
 
     const static std::string& kDimensionCapacity = "capacity";
 
-    //function for handling different capacitated vehicles
+    
     model.AddDimensionWithVehicleCapacity(demandCallback, /*slack=*/0, vehicleCapacity, /*fix_start_cumul_to_zero=*/true, kDimensionCapacity);
      const auto& capacityDimension = model.GetDimensionOrDie(kDimensionCapacity);
-
-     // if(model.status() != RoutingModel::Status::ROUTING_SUCCESS)
-     //  return SetErrorMessage("Unable to find a solution -1");
-
-     std::cout<<"hello ";
-    //old  
-    //const static auto kDimensionCapacity = "capacity";
-
-    //model.AddDimension(demandCallback, /*slack=*/0, vehicleCapacity, /*fix_start_cumul_to_zero=*/true, kDimensionCapacity);
-    // const auto& capacityDimension = model.GetDimensionOrDie(kDimensionCapacity);
-
-
 
     // Pickup and Deliveries
 
     auto* solver = model.solver();
-    // if(model.status() != RoutingModel::Status::ROUTING_SUCCESS)
-    //   return SetErrorMessage("Unable to find a solution 0");
-
+    
     for (std::int32_t atIdx = 0; atIdx < pickups.size(); ++atIdx) {
       const auto pickupIndex = model.NodeToIndex(pickups.at(atIdx));
       const auto deliveryIndex = model.NodeToIndex(deliveries.at(atIdx));
@@ -170,21 +222,13 @@ struct VRPWorker final : Nan::AsyncWorker {
 
       model.AddPickupAndDelivery(pickups.at(atIdx), deliveries.at(atIdx));
     }
-    // if(model.status() != RoutingModel::Status::ROUTING_SUCCESS)
-    //   return SetErrorMessage("Unable to find a solution 0");
 
     // Done with modifications to the routing model
 
     model.CloseModel();
 
-    // if(model.status() != RoutingModel::Status::ROUTING_SUCCESS)
-    //   return SetErrorMessage("Unable to find a solution 1");
-
     // Locking routes into place needs to happen after the model is closed and the underlying vars are established
     const auto validLocks = model.ApplyLocksToAllVehicles(routeLocks, /*close_routes=*/false);
-
-    // if(model.status() != RoutingModel::Status::ROUTING_SUCCESS)
-    //   return SetErrorMessage("Unable to find a solution 2");
 
     if (!validLocks)
       return SetErrorMessage("Invalid locks");
@@ -272,7 +316,8 @@ struct VRPWorker final : Nan::AsyncWorker {
   std::int32_t numVehicles;
   std::int32_t vehicleDepot;
   std::int32_t timeHorizon;
-  std::vector<int64> vehicleCapacity;   // changed type of vehicle capacity from int32_t to vector<int64>
+  std::vector<int64> vehicleCapacity;   
+  std::vector<int32_t> serviceTimes;
 
   const RouteLocks routeLocks;
 

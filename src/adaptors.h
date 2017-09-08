@@ -25,8 +25,7 @@ template <typename Adaptor> auto makeCallback(const Adaptor& adaptor) {
 // Caches user provided Function(s, t) -> Number into Matrix
 template <typename Matrix> inline auto makeMatrixFromFunction(std::int32_t n, v8::Local<v8::Function> fn) {
   if (n < 0)
-    throw std::runtime_error{"Negative dimension"};
-
+    throw std::runtime_error{"Negative dimension"}; 
   Nan::Callback callback{fn};
 
   Matrix matrix{n};

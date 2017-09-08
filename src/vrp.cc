@@ -7,6 +7,7 @@ VRP::VRP(CostMatrix costs_, DurationMatrix durations_, TimeWindows timeWindows_,
       durations{std::make_shared<const DurationMatrix>(std::move(durations_))},
       timeWindows{std::make_shared<const TimeWindows>(std::move(timeWindows_))},
       demands{std::make_shared<const DemandMatrix>(std::move(demands_))} {}
+      
 
 NAN_MODULE_INIT(VRP::Init) {
   const auto whoami = Nan::New("VRP").ToLocalChecked();
@@ -36,14 +37,16 @@ NAN_METHOD(VRP::New) try {
   const auto bytesChange = getBytes(userParams.costs)         //
                            + getBytes(userParams.durations)   //
                            + getBytes(userParams.timeWindows) //
-                           + getBytes(userParams.demands);    //
+                           + getBytes(userParams.demands);      //
+                           
 
   Nan::AdjustExternalMemory(bytesChange);
 
   auto* self = new VRP{std::move(userParams.costs),       //
                        std::move(userParams.durations),   //
                        std::move(userParams.timeWindows), //
-                       std::move(userParams.demands)};    //
+                       std::move(userParams.demands)};
+                      
 
   self->Wrap(info.This());
 
@@ -94,6 +97,7 @@ NAN_METHOD(VRP::Solve) try {
                                userParams.depotNode,                   //
                                userParams.timeHorizon,                 //
                                userParams.vehicleCapacity,             //
+                               userParams.serviceTimes,                //
                                std::move(userParams.routeLocks),       //
                                std::move(userParams.pickups),          //
                                std::move(userParams.deliveries)};      //
