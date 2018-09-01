@@ -6,5 +6,6 @@ npm-debug.log
 .nyc*
 coverage
 lib/binding
+*.tgz
 .DS_STORE
 ./lib/.DS_STORE
