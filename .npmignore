@@ -3,5 +3,11 @@
 !example/*
 !lib/*.js
 !LICENSE
+!README.md
 !package.json
+!package-lock.json
 !test/*
+!binding.gyp
+!common.gypi
+!src/*
+!scripts/install-deps.sh
